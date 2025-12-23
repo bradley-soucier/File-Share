@@ -1,53 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Supabase File Share</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    body {
-      font-family: system-ui, sans-serif;
-      background: #0f0f12;
-      color: #fff;
-      max-width: 800px;
-      margin: auto;
-      padding: 20px;
-    }
+<meta charset="UTF-8">
+<title>Supabase File Share</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    input, button {
-      padding: 10px;
-      margin-top: 10px;
-      width: 100%;
-      border-radius: 6px;
-      border: none;
-    }
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    background: #0f0f12;
+    color: #fff;
+    max-width: 900px;
+    margin: auto;
+    padding: 20px;
+  }
 
-    button {
-      background: #5865f2;
-      color: white;
-      cursor: pointer;
-    }
+  h2 {
+    margin-bottom: 10px;
+  }
 
-    .file {
-      background: #1b1b22;
-      padding: 12px;
-      border-radius: 6px;
-      margin-top: 10px;
-    }
+  input, button {
+    padding: 10px;
+    margin-top: 10px;
+    width: 100%;
+    border-radius: 6px;
+    border: none;
+  }
 
-    a {
-      color: #4da3ff;
-      word-break: break-all;
-    }
-  </style>
+  button {
+    background: #5865f2;
+    color: white;
+    cursor: pointer;
+  }
+
+  .file {
+    background: #1b1b22;
+    padding: 14px;
+    border-radius: 8px;
+    margin-top: 15px;
+  }
+
+  img, video {
+    max-width: 100%;
+    border-radius: 6px;
+    margin-top: 10px;
+  }
+
+  a {
+    color: #4da3ff;
+    word-break: break-all;
+  }
+
+  .meta {
+    font-size: 14px;
+    opacity: 0.8;
+    margin-top: 4px;
+  }
+</style>
 </head>
+
 <body>
 
 <h2>📁 Supabase File Share</h2>
 
 <input type="file" id="fileInput">
-<button onclick="uploadFile()">Upload</button>
+<button id="uploadBtn">Upload</button>
 
 <div id="files"></div>
 
@@ -57,24 +75,27 @@
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd1b2JkcmN0Ym5tdW5tbHdxenFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1MTIzMTAsImV4cCI6MjA4MjA4ODMxMH0.7cpegFl73WkpsN3BLFJAxJsNCNRrDue2Fhk7Y6DElzU"
   );
 
-  function randomId(length = 8) {
-    return Math.random().toString(36).substring(2, 2 + length);
+  function randomId(len = 8) {
+    return Math.random().toString(36).substring(2, 2 + len);
   }
 
-  async function uploadFile() {
-    const file = document.getElementById("fileInput").files[0];
-    if (!file) return alert("No file selected");
+  document.getElementById("uploadBtn").addEventListener("click", uploadFile);
+
+  window.uploadFile = async function () {
+    const input = document.getElementById("fileInput");
+    const file = input.files[0];
+    if (!file) return alert("Select a file first");
 
     const shortId = randomId();
     const path = `${shortId}/${file.name}`;
 
-    const { error: uploadError } = await supabase
+    const { error } = await supabase
       .storage
       .from("uploads")
       .upload(path, file);
 
-    if (uploadError) {
-      alert(uploadError.message);
+    if (error) {
+      alert(error.message);
       return;
     }
 
@@ -92,8 +113,9 @@
       short_id: shortId
     });
 
+    input.value = "";
     loadFiles();
-  }
+  };
 
   async function loadFiles() {
     const { data } = await supabase
@@ -105,10 +127,29 @@
     container.innerHTML = "";
 
     data.forEach(file => {
+      let preview = "";
+
+      if (file.mime_type?.startsWith("image/")) {
+        preview = `<img src="${file.public_url}">`;
+      } 
+      else if (file.mime_type?.startsWith("video/")) {
+        preview = `
+          <video controls>
+            <source src="${file.public_url}">
+          </video>
+        `;
+      } 
+      else {
+        preview = "📄 File preview not available";
+      }
+
       container.innerHTML += `
         <div class="file">
-          <strong>${file.original_name}</strong><br>
-          <a href="${file.public_url}" target="_blank">${file.public_url}</a>
+          <strong>${file.original_name}</strong>
+          <div class="meta">${file.mime_type || "unknown type"}</div>
+          ${preview}
+          <br>
+          <a href="${file.public_url}" target="_blank">Open / Download</a>
         </div>
       `;
     });
