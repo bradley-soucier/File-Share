@@ -3,220 +3,454 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QuickShare - Simple File Sharing</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Simple File Share</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-        .drop-zone--over { border-color: #3b82f6; background-color: #eff6ff; }
-        .loader {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #3b82f6;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 1s linear infinite;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: #2563eb;
+            color: white;
+            padding: 25px 0;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 28px;
+        }
+        
+        .upload-area {
+            background: white;
+            border: 2px dashed #d1d5db;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 30px;
+        }
+        
+        .upload-area:hover {
+            border-color: #2563eb;
+            background: #f8f9ff;
+        }
+        
+        .upload-area.dragover {
+            border-color: #2563eb;
+            background: #eff2ff;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            color: #9ca3af;
+            margin-bottom: 15px;
+        }
+        
+        .file-list {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .file-item:last-child {
+            border-bottom: none;
+        }
+        
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex: 1;
+        }
+        
+        .file-icon {
+            font-size: 32px;
+        }
+        
+        .file-details h3 {
+            font-size: 16px;
+            margin-bottom: 4px;
+            word-break: break-all;
+        }
+        
+        .file-meta {
+            font-size: 13px;
+            color: #6b7280;
+        }
+        
+        .file-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .download-btn {
+            background: #2563eb;
+            color: white;
+        }
+        
+        .download-btn:hover {
+            background: #1d4ed8;
+        }
+        
+        .delete-btn {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .delete-btn:hover {
+            background: #dc2626;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #e5e7eb;
+            border-radius: 2px;
+            margin-top: 15px;
+            display: none;
+        }
+        
+        .progress-bar.active {
+            display: block;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #2563eb;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+        
+        .error-message {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-900">
-
-    <div class="max-w-4xl mx-auto px-4 py-12">
-        <header class="text-center mb-12">
-            <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">QuickShare</h1>
-            <p class="mt-4 text-lg text-slate-600">No accounts. No hassle. Just sharing.</p>
-        </header>
-
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <!-- Upload Section -->
-            <div class="p-8 border-b border-slate-100">
-                <div id="drop-zone" class="relative group border-2 border-dashed border-slate-300 rounded-xl p-10 flex flex-col items-center justify-center transition-all hover:border-blue-400 hover:bg-blue-50/50 cursor-pointer">
-                    <input type="file" id="file-input" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
-                    
-                    <div id="upload-icon" class="p-4 bg-blue-50 rounded-full text-blue-600 group-hover:scale-110 transition-transform">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                    </div>
-                    
-                    <div class="mt-4 text-center">
-                        <p class="text-base font-semibold text-slate-700">Click to upload or drag and drop</p>
-                        <p class="text-sm text-slate-500 mt-1">Uploads are stored in the 'files' bucket</p>
-                    </div>
-                </div>
-
-                <div id="upload-status" class="hidden mt-6">
-                    <div class="flex items-center justify-between mb-2">
-                        <span id="file-name-label" class="text-sm font-medium text-slate-700 truncate max-w-xs">Uploading...</span>
-                        <div class="loader"></div>
-                    </div>
-                    <div class="w-full bg-slate-100 rounded-full h-2">
-                        <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 10%"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- List Section -->
-            <div class="p-8">
-                <div class="flex items-center justify-between mb-6">
-                    <h2 class="text-xl font-bold text-slate-800">Available Files</h2>
-                    <button id="refresh-btn" class="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-800 font-medium">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                        <span>Refresh</span>
-                    </button>
-                </div>
-
-                <div id="file-list" class="space-y-3">
-                    <div class="text-center py-10 text-slate-400 animate-pulse">Checking connection...</div>
-                </div>
+<body>
+    <header>
+        <div class="container">
+            <h1>📁 Simple File Share</h1>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="error-message" id="errorMessage"></div>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📤</div>
+            <p><strong>Click to upload</strong> or drag and drop</p>
+            <p style="font-size: 14px; color: #6b7280; margin-top: 8px;">Any file up to 50MB</p>
+            <input type="file" id="fileInput" multiple>
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-fill" id="progressFill"></div>
             </div>
         </div>
-    </div>
-
-    <!-- Alert Modal -->
-    <div id="modal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl">
-            <h3 id="modal-title" class="text-lg font-bold mb-2">Notice</h3>
-            <p id="modal-text" class="text-slate-600 mb-6"></p>
-            <button onclick="closeModal()" class="w-full py-2 bg-slate-900 text-white rounded-lg font-medium">Close</button>
+        
+        <div class="file-list" id="fileList">
+            <h2 style="margin-bottom: 20px; font-size: 20px;">Shared Files</h2>
+            <div id="filesContainer">
+                <div class="empty-state">No files yet. Be the first to upload!</div>
+            </div>
         </div>
     </div>
 
     <script>
-        const SUPABASE_URL = "https://vuafoiixequfvipzimxq.supabase.co";
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ1YWZvaWl4ZXF1ZnZpcHppbXhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1MjY0NTQsImV4cCI6MjA4MjEwMjQ1NH0.omrVKnj0msQ8EMONR72RevU1l6WcH4pNmSwON0v7IYA";
-        const BUCKET_NAME = "files";
-
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-        const fileInput = document.getElementById('file-input');
-        const dropZone = document.getElementById('drop-zone');
-        const fileList = document.getElementById('file-list');
-        const uploadStatus = document.getElementById('upload-status');
-        const progressBar = document.getElementById('progress-bar');
-        const fileNameLabel = document.getElementById('file-name-label');
-        const refreshBtn = document.getElementById('refresh-btn');
-
-        async function handleUpload(file) {
-            uploadStatus.classList.remove('hidden');
-            fileNameLabel.textContent = `Uploading ${file.name}...`;
-            progressBar.style.width = '20%';
-            
-            // Generate a safe path
-            const cleanName = file.name.replace(/[^a-z0-9.]/gi, '_').toLowerCase();
-            const filePath = `public/${Date.now()}_${cleanName}`;
-
-            try {
-                const { data, error } = await supabase.storage
-                    .from(BUCKET_NAME)
-                    .upload(filePath, file);
-
-                if (error) throw error;
-
-                progressBar.style.width = '100%';
-                setTimeout(() => {
-                    uploadStatus.classList.add('hidden');
-                    fetchFiles();
-                    showModal("Success", "File uploaded successfully!");
-                }, 500);
-
-            } catch (err) {
-                console.error("Full Error details:", err);
-                uploadStatus.classList.add('hidden');
-                showModal("Upload Failed", 
-                    `Error: ${err.message || 'Unknown error'}. \n\nMake sure your Supabase bucket is named "${BUCKET_NAME}" and you have created a public 'Insert' policy for anonymous users.`);
-            }
+        // ===== SUPABASE SETUP REQUIRED =====
+        // Before using this, you MUST set up your Supabase project:
+        // 1. Create a storage bucket named "files" with public access
+        // 2. Enable RLS on the bucket and add policies:
+        //    - Allow anonymous uploads
+        //    - Allow anonymous downloads
+        // 3. Create a "files" table with columns:
+        //    - id (uuid, primary key)
+        //    - filename (text)
+        //    - storage_path (text)
+        //    - uploaded_by (text)
+        //    - file_size (int)
+        //    - file_type (text)
+        //    - created_at (timestamp)
+        // 4. Enable RLS on the table and add policies for SELECT, INSERT, DELETE
+        
+        const SUPABASE_URL = 'https://vuafoiixequfvipzimxq.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ1YWZvaWl4ZXF1ZnZpcHppbXhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1MjY0NTQsImV4cCI6MjA4MjEwMjQ1NH0.omrVKnj0msQ8EMONR72RevU1l6WcH4pNmSwON0v7IYA';
+        
+        // Initialize Supabase
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // Anonymous user ID (stored in localStorage)
+        let userId = localStorage.getItem('anonymous_user_id');
+        if (!userId) {
+            userId = 'anon_' + Math.random().toString(36).substr(2, 18);
+            localStorage.setItem('anonymous_user_id', userId);
         }
-
-        async function fetchFiles() {
-            try {
-                const { data, error } = await supabase.storage
-                    .from(BUCKET_NAME)
-                    .list('public', {
-                        limit: 50,
-                        sortBy: { column: 'created_at', order: 'desc' }
+        
+        // DOM elements
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const filesContainer = document.getElementById('filesContainer');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const errorMessage = document.getElementById('errorMessage');
+        
+        // Event listeners
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+        
+        // Functions
+        function showError(msg) {
+            errorMessage.textContent = msg;
+            errorMessage.style.display = 'block';
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        function getFileIcon(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            const icons = {
+                'pdf': '📄',
+                'doc': '📝', 'docx': '📝',
+                'xls': '📊', 'xlsx': '📊',
+                'ppt': '📋', 'pptx': '📋',
+                'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️', 'gif': '🖼️',
+                'zip': '📦', 'rar': '📦', '7z': '📦',
+                'txt': '📃',
+                'mp4': '🎬', 'mov': '🎬',
+                'mp3': '🎵', 'wav': '🎵'
+            };
+            return icons[ext] || '📎';
+        }
+        
+        async function handleFiles(files) {
+            const maxSize = 50 * 1024 * 1024; // 50MB
+            const validFiles = Array.from(files).filter(file => file.size <= maxSize);
+            
+            if (validFiles.length !== files.length) {
+                showError('Some files exceed 50MB limit and were skipped.');
+            }
+            
+            if (validFiles.length === 0) return;
+            
+            progressBar.classList.add('active');
+            
+            for (let i = 0; i < validFiles.length; i++) {
+                const file = validFiles[i];
+                progressFill.style.width = `${(i / validFiles.length) * 100}%`;
+                
+                try {
+                    const fileExt = file.name.split('.').pop();
+                    const uniqueName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+                    const storagePath = `${userId}/${uniqueName}`;
+                    
+                    // Upload to storage
+                    const { error: uploadError } = await supabase.storage
+                        .from('files')
+                        .upload(storagePath, file);
+                    
+                    if (uploadError) throw uploadError;
+                    
+                    // Save metadata to database
+                    const { error: dbError } = await supabase.from('files').insert({
+                        filename: file.name,
+                        storage_path: storagePath,
+                        uploaded_by: userId,
+                        file_size: file.size,
+                        file_type: file.type
                     });
-
+                    
+                    if (dbError) throw dbError;
+                    
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    showError(`Failed to upload ${file.name}: ${error.message}`);
+                }
+            }
+            
+            progressFill.style.width = '100%';
+            setTimeout(() => {
+                progressBar.classList.remove('active');
+                progressFill.style.width = '0%';
+            }, 500);
+            
+            fileInput.value = '';
+            loadFiles();
+        }
+        
+        async function loadFiles() {
+            try {
+                const { data, error } = await supabase
+                    .from('files')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
                 if (error) throw error;
-
-                if (!data || data.length === 0) {
-                    fileList.innerHTML = '<div class="text-center py-10 text-slate-400">No files found in the "public" folder of your bucket.</div>';
+                
+                if (data.length === 0) {
+                    filesContainer.innerHTML = '<div class="empty-state">No files yet. Be the first to upload!</div>';
                     return;
                 }
-
-                fileList.innerHTML = data.filter(f => f.name !== '.emptyFolderPlaceholder').map(file => {
-                    const { data: { publicUrl } } = supabase.storage.from(BUCKET_NAME).getPublicUrl(`public/${file.name}`);
-                    const size = (file.metadata.size / 1024).toFixed(1) + " KB";
-                    
-                    return `
-                        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-blue-200 transition-all">
-                            <div class="flex items-center space-x-4 truncate mr-4">
-                                <div class="p-2 bg-white rounded shadow-sm text-blue-500">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd" /></svg>
+                
+                filesContainer.innerHTML = data.map(file => `
+                    <div class="file-item">
+                        <div class="file-info">
+                            <span class="file-icon">${getFileIcon(file.filename)}</span>
+                            <div class="file-details">
+                                <h3>${file.filename}</h3>
+                                <div class="file-meta">
+                                    ${formatFileSize(file.file_size)} • 
+                                    ${new Date(file.created_at).toLocaleDateString()}
                                 </div>
-                                <div class="truncate">
-                                    <p class="text-sm font-semibold text-slate-800 truncate">${file.name}</p>
-                                    <p class="text-xs text-slate-500">${size}</p>
-                                </div>
-                            </div>
-                            <div class="flex space-x-2 shrink-0">
-                                <button onclick="copyLink('${publicUrl}')" class="p-2 hover:bg-blue-100 text-blue-600 rounded-lg" title="Copy Link">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
-                                </button>
-                                <a href="${publicUrl}" target="_blank" download class="p-2 hover:bg-slate-200 text-slate-600 rounded-lg">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                                </a>
                             </div>
                         </div>
-                    `;
-                }).join('');
-
-            } catch (err) {
-                fileList.innerHTML = `<div class="text-center py-10 text-red-500 text-sm">Error: ${err.message}<br>Check if bucket "${BUCKET_NAME}" is public.</div>`;
+                        <div class="file-actions">
+                            <button class="download-btn" onclick="downloadFile('${file.storage_path}', '${file.filename}')">
+                                Download
+                            </button>
+                            ${file.uploaded_by === userId ? 
+                                `<button class="delete-btn" onclick="deleteFile('${file.id}', '${file.storage_path}')">Delete</button>` 
+                                : ''
+                            }
+                        </div>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Load error:', error);
+                showError('Failed to load files: ' + error.message);
             }
         }
-
-        // UI Helpers
-        function showModal(title, text) {
-            document.getElementById('modal-title').textContent = title;
-            document.getElementById('modal-text').textContent = text;
-            document.getElementById('modal').classList.replace('hidden', 'flex');
+        
+        async function downloadFile(storagePath, filename) {
+            try {
+                const { data, error } = await supabase.storage
+                    .from('files')
+                    .download(storagePath);
+                
+                if (error) throw error;
+                
+                const url = URL.createObjectURL(data);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+            } catch (error) {
+                console.error('Download error:', error);
+                showError('Failed to download file: ' + error.message);
+            }
         }
-
-        function closeModal() {
-            document.getElementById('modal').classList.replace('flex', 'hidden');
+        
+        async function deleteFile(fileId, storagePath) {
+            if (!confirm('Delete this file?')) return;
+            
+            try {
+                // Delete from storage
+                const { error: storageError } = await supabase.storage
+                    .from('files')
+                    .remove([storagePath]);
+                
+                if (storageError) throw storageError;
+                
+                // Delete from database
+                const { error: dbError } = await supabase
+                    .from('files')
+                    .delete()
+                    .eq('id', fileId);
+                
+                if (dbError) throw dbError;
+                
+                loadFiles();
+                
+            } catch (error) {
+                console.error('Delete error:', error);
+                showError('Failed to delete file: ' + error.message);
+            }
         }
-
-        function copyLink(url) {
-            const el = document.createElement('textarea');
-            el.value = url;
-            document.body.appendChild(el);
-            el.select();
-            document.execCommand('copy');
-            document.body.removeChild(el);
-            showModal("Copied", "Public link copied to clipboard!");
-        }
-
-        // Event Listeners
-        fileInput.addEventListener('change', (e) => e.target.files[0] && handleUpload(e.target.files[0]));
-        refreshBtn.addEventListener('click', fetchFiles);
-
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(e => {
-            dropZone.addEventListener(e, (ev) => {
-                ev.preventDefault();
-                if (e === 'dragover') dropZone.classList.add('drop-zone--over');
-                if (e === 'dragleave' || e === 'drop') dropZone.classList.remove('drop-zone--over');
-                if (e === 'drop') {
-                    const file = ev.dataTransfer.files[0];
-                    if (file) handleUpload(file);
-                }
-            });
-        });
-
-        window.onload = fetchFiles;
+        
+        // Load files on page load
+        loadFiles();
     </script>
 </body>
 </html>
-
