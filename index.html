@@ -1,162 +1,252 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Supabase File Share</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<style>
-  body {
-    font-family: system-ui, sans-serif;
-    background: #0f0f12;
-    color: #fff;
-    max-width: 900px;
-    margin: auto;
-    padding: 20px;
-  }
-
-  h2 {
-    margin-bottom: 10px;
-  }
-
-  input, button {
-    padding: 10px;
-    margin-top: 10px;
-    width: 100%;
-    border-radius: 6px;
-    border: none;
-  }
-
-  button {
-    background: #5865f2;
-    color: white;
-    cursor: pointer;
-  }
-
-  .file {
-    background: #1b1b22;
-    padding: 14px;
-    border-radius: 8px;
-    margin-top: 15px;
-  }
-
-  img, video {
-    max-width: 100%;
-    border-radius: 6px;
-    margin-top: 10px;
-  }
-
-  a {
-    color: #4da3ff;
-    word-break: break-all;
-  }
-
-  .meta {
-    font-size: 14px;
-    opacity: 0.8;
-    margin-top: 4px;
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuickShare - Simple File Sharing</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .drop-zone--over { border-color: #3b82f6; background-color: #eff6ff; }
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
 </head>
+<body class="bg-slate-50 min-h-screen text-slate-900">
 
-<body>
+    <div class="max-w-4xl mx-auto px-4 py-12">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">QuickShare</h1>
+            <p class="mt-4 text-lg text-slate-600 text-balance">Simple, anonymous file sharing. Upload your file and share the public link instantly.</p>
+        </header>
 
-<h2>📁 Supabase File Share</h2>
+        <!-- Main Card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            
+            <!-- Upload Section -->
+            <div class="p-8 border-b border-slate-100">
+                <div id="drop-zone" class="relative group border-2 border-dashed border-slate-300 rounded-xl p-10 flex flex-col items-center justify-center transition-all hover:border-blue-400 hover:bg-blue-50/50 cursor-pointer">
+                    <input type="file" id="file-input" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                    
+                    <div class="p-4 bg-blue-50 rounded-full text-blue-600 group-hover:scale-110 transition-transform">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                    </div>
+                    
+                    <div class="mt-4 text-center">
+                        <p class="text-base font-semibold text-slate-700">Click to upload or drag and drop</p>
+                        <p class="text-sm text-slate-500 mt-1">Any file size up to your Supabase limit</p>
+                    </div>
+                </div>
 
-<input type="file" id="fileInput">
-<button id="uploadBtn">Upload</button>
+                <!-- Progress Bar (Hidden by default) -->
+                <div id="upload-status" class="hidden mt-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <span id="file-name-label" class="text-sm font-medium text-slate-700 truncate max-w-xs">filename.png</span>
+                        <div id="loading-spinner" class="loader"></div>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2">
+                        <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
 
-<div id="files"></div>
+            <!-- Files List Section -->
+            <div class="p-8">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold text-slate-800">Recent Uploads</h2>
+                    <button id="refresh-btn" class="text-sm text-blue-600 hover:text-blue-800 font-medium">Refresh List</button>
+                </div>
 
-<script>
-  const supabase = supabaseJs.createClient(
-    "https://guobdrctbnmunmlwqzqo.supabase.co",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd1b2JkcmN0Ym5tdW5tbHdxenFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1MTIzMTAsImV4cCI6MjA4MjA4ODMxMH0.7cpegFl73WkpsN3BLFJAxJsNCNRrDue2Fhk7Y6DElzU"
-  );
-
-  function randomId(len = 8) {
-    return Math.random().toString(36).substring(2, 2 + len);
-  }
-
-  document.getElementById("uploadBtn").addEventListener("click", uploadFile);
-
-  window.uploadFile = async function () {
-    const input = document.getElementById("fileInput");
-    const file = input.files[0];
-    if (!file) return alert("Select a file first");
-
-    const shortId = randomId();
-    const path = `${shortId}/${file.name}`;
-
-    const { error } = await supabase
-      .storage
-      .from("uploads")
-      .upload(path, file);
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    const { data } = supabase
-      .storage
-      .from("uploads")
-      .getPublicUrl(path);
-
-    await supabase.from("files").insert({
-      original_name: file.name,
-      storage_path: path,
-      public_url: data.publicUrl,
-      mime_type: file.type,
-      file_size: file.size,
-      short_id: shortId
-    });
-
-    input.value = "";
-    loadFiles();
-  };
-
-  async function loadFiles() {
-    const { data } = await supabase
-      .from("files")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    const container = document.getElementById("files");
-    container.innerHTML = "";
-
-    data.forEach(file => {
-      let preview = "";
-
-      if (file.mime_type?.startsWith("image/")) {
-        preview = `<img src="${file.public_url}">`;
-      } 
-      else if (file.mime_type?.startsWith("video/")) {
-        preview = `
-          <video controls>
-            <source src="${file.public_url}">
-          </video>
-        `;
-      } 
-      else {
-        preview = "📄 File preview not available";
-      }
-
-      container.innerHTML += `
-        <div class="file">
-          <strong>${file.original_name}</strong>
-          <div class="meta">${file.mime_type || "unknown type"}</div>
-          ${preview}
-          <br>
-          <a href="${file.public_url}" target="_blank">Open / Download</a>
+                <div id="file-list" class="space-y-3">
+                    <!-- Files will be injected here -->
+                    <div class="text-center py-10 text-slate-400 italic">
+                        No files uploaded yet.
+                    </div>
+                </div>
+            </div>
         </div>
-      `;
-    });
-  }
 
-  loadFiles();
-</script>
+        <footer class="mt-12 text-center text-slate-400 text-sm">
+            Powered by Supabase Storage &bull; No login required
+        </footer>
+    </div>
 
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white px-6 py-3 rounded-lg shadow-xl flex items-center space-x-3 pointer-events-none">
+        <span id="toast-message">Message here</span>
+    </div>
+
+    <script>
+        // Supabase Configuration
+        const SUPABASE_URL = "https://vuafoiixequfvipzimxq.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ1YWZvaWl4ZXF1ZnZpcHppbXhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1MjY0NTQsImV4cCI6Miw4MjEwMjQ1NH0.omrVKnj0msQ8EMONR72RevU1l6WcH4pNmSwON0v7IYA";
+        const BUCKET_NAME = "files"; // Ensure this bucket exists and has public 'Select' and 'Insert' permissions
+
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // DOM Elements
+        const fileInput = document.getElementById('file-input');
+        const dropZone = document.getElementById('drop-zone');
+        const fileList = document.getElementById('file-list');
+        const uploadStatus = document.getElementById('upload-status');
+        const progressBar = document.getElementById('progress-bar');
+        const fileNameLabel = document.getElementById('file-name-label');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const toast = document.getElementById('toast');
+        const toastMsg = document.getElementById('toast-message');
+
+        // Drag and Drop Logic
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+
+        dropZone.addEventListener('dragover', () => dropZone.classList.add('drop-zone--over'));
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('drop-zone--over'));
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length) handleUpload(files[0]);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) handleUpload(e.target.files[0]);
+        });
+
+        async function handleUpload(file) {
+            uploadStatus.classList.remove('hidden');
+            fileNameLabel.textContent = file.name;
+            progressBar.style.width = '10%';
+            
+            // Generate a unique path to avoid collisions
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+            const filePath = `uploads/${fileName}`;
+
+            try {
+                const { data, error } = await supabase.storage
+                    .from(BUCKET_NAME)
+                    .upload(filePath, file, {
+                        cacheControl: '3600',
+                        upsert: false
+                    });
+
+                if (error) throw error;
+
+                progressBar.style.width = '100%';
+                showToast("File uploaded successfully!");
+                setTimeout(() => {
+                    uploadStatus.classList.add('hidden');
+                    progressBar.style.width = '0%';
+                    fetchFiles();
+                }, 1000);
+
+            } catch (err) {
+                console.error("Upload error:", err);
+                showToast("Upload failed: Check bucket permissions.", "error");
+                uploadStatus.classList.add('hidden');
+            }
+        }
+
+        async function fetchFiles() {
+            try {
+                const { data, error } = await supabase.storage
+                    .from(BUCKET_NAME)
+                    .list('uploads', {
+                        limit: 20,
+                        offset: 0,
+                        sortBy: { column: 'created_at', order: 'desc' },
+                    });
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    fileList.innerHTML = '<div class="text-center py-10 text-slate-400 italic">No files found. Try uploading one!</div>';
+                    return;
+                }
+
+                fileList.innerHTML = data.map(file => {
+                    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/uploads/${file.name}`;
+                    const size = (file.metadata.size / 1024 / 1024).toFixed(2);
+                    const date = new Date(file.created_at).toLocaleDateString();
+                    
+                    return `
+                        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-300 transition-all group">
+                            <div class="flex items-center space-x-4 overflow-hidden">
+                                <div class="p-2 bg-white rounded-lg shadow-sm">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                </div>
+                                <div class="overflow-hidden">
+                                    <h3 class="text-sm font-semibold text-slate-800 truncate">${file.name}</h3>
+                                    <p class="text-xs text-slate-500">${size} MB • ${date}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="copyToClipboard('${publicUrl}')" class="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Copy Link">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                                    </svg>
+                                </button>
+                                <a href="${publicUrl}" target="_blank" class="p-2 text-slate-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Download">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (err) {
+                console.error("Fetch error:", err);
+                fileList.innerHTML = '<div class="text-center py-10 text-red-400">Error loading files. Ensure bucket "files" exists and is public.</div>';
+            }
+        }
+
+        function copyToClipboard(text) {
+            const el = document.createElement('textarea');
+            el.value = text;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            showToast("Link copied to clipboard!");
+        }
+
+        function showToast(message, type = "success") {
+            toastMsg.textContent = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+                toast.classList.remove('translate-y-0', 'opacity-100');
+            }, 3000);
+        }
+
+        refreshBtn.addEventListener('click', fetchFiles);
+        
+        // Initial fetch
+        window.onload = fetchFiles;
+
+    </script>
 </body>
 </html>
+
