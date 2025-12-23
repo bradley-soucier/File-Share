@@ -6,7 +6,7 @@
     <title>Simple File Share</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* Same CSS as before */
+        /* Same CSS as before + new status indicator */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; background: #f5f5f5; color: #333; line-height: 1.6; }
         .container { max-width: 900px; margin: 0 auto; padding: 20px; }
@@ -35,8 +35,20 @@
         .progress-fill { height: 100%; background: #2563eb; border-radius: 2px; transition: width 0.3s ease; width: 0%; }
         .empty-state { text-align: center; padding: 40px; color: #6b7280; }
         .error-message { background: #fee2e2; color: #dc2626; padding: 12px; border-radius: 6px; margin-bottom: 20px; display: none; }
-        /* NEW: Visual feedback for upload state */
         .uploading { opacity: 0.6; pointer-events: none; }
+        
+        /* NEW: Visible status indicator */
+        .status-indicator {
+            background: #e0f2fe;
+            color: #0369a1;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -47,6 +59,9 @@
     </header>
     
     <div class="container">
+        <!-- NEW: Visible status log -->
+        <div class="status-indicator" id="statusLog">⏳ Loading script...</div>
+        
         <div class="error-message" id="errorMessage"></div>
         
         <label for="fileInput" class="upload-area" id="uploadArea">
@@ -69,297 +84,324 @@
     </div>
 
     <script>
-        // DEBUG: Check if Supabase loaded
-        if (typeof window.supabase === 'undefined') {
-            alert('ERROR: Supabase library failed to load. Check your internet connection.');
-            console.error('Supabase not loaded');
+        // ===== DEBUGGING SYSTEM =====
+        const statusLog = document.getElementById('statusLog');
+        function logStatus(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            statusLog.innerHTML += `<br>[${timestamp}] ${message}`;
+            console.log(message);
         }
         
-        const SUPABASE_URL = 'https://vuafoiixequfvipzimxq.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ1YWZvaWl4ZXF1ZnZpcHppbXhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1MjY0NTQsImV4cCI6MjA4MjEwMjQ1NH0.omrVKnj0msQ8EMONR72RevU1l6WcH4pNmSwOn0v7IYA';
+        // Global error catcher
+        window.addEventListener('error', (e) => {
+            logStatus(`❌ UNCAUGHT ERROR: ${e.message}`);
+            document.getElementById('errorMessage').textContent = `Fatal Error: ${e.message}. Check console.`;
+            document.getElementById('errorMessage').style.display = 'block';
+        });
         
-        // DEBUG: Initialize Supabase
-        let supabase;
+        // ===== SCRIPT START =====
+        logStatus('🚀 Script started executing');
+        
         try {
-            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            console.log('✅ Supabase initialized');
-        } catch (e) {
-            console.error('❌ Supabase init failed:', e);
-            alert('Failed to initialize Supabase. Check console for errors.');
-        }
-        
-        // Anonymous user ID
-        let userId = localStorage.getItem('anonymous_user_id');
-        if (!userId) {
-            userId = 'anon_' + Math.random().toString(36).substr(2, 18);
-            localStorage.setItem('anonymous_user_id', userId);
-            console.log('Generated new user ID:', userId);
-        } else {
-            console.log('Using existing user ID:', userId);
-        }
-        
-        // DOM elements
-        const uploadArea = document.getElementById('uploadArea');
-        const fileInput = document.getElementById('fileInput');
-        const filesContainer = document.getElementById('filesContainer');
-        const progressBar = document.getElementById('progressBar');
-        const progressFill = document.getElementById('progressFill');
-        const errorMessage = document.getElementById('errorMessage');
-        
-        // Event listeners
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-        
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
-        
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            console.log('Files dropped:', e.dataTransfer.files);
-            handleFiles(e.dataTransfer.files);
-        });
-        
-        fileInput.addEventListener('change', (e) => {
-            console.log('Files selected:', e.target.files);
-            handleFiles(e.target.files);
-        });
-        
-        // Functions
-        function showError(msg) {
-            console.error('Error:', msg);
-            errorMessage.textContent = msg;
-            errorMessage.style.display = 'block';
-            setTimeout(() => {
-                errorMessage.style.display = 'none';
-            }, 5000);
-        }
-        
-        function formatFileSize(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        }
-        
-        function getFileIcon(filename) {
-            const ext = filename.split('.').pop().toLowerCase();
-            const icons = {
-                'pdf': '📄',
-                'doc': '📝', 'docx': '📝',
-                'xls': '📊', 'xlsx': '📊',
-                'ppt': '📋', 'pptx': '📋',
-                'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️', 'gif': '🖼️',
-                'zip': '📦', 'rar': '📦', '7z': '📦',
-                'txt': '📃',
-                'mp4': '🎬', 'mov': '🎬',
-                'mp3': '🎵', 'wav': '🎵'
-            };
-            return icons[ext] || '📎';
-        }
-        
-        async function handleFiles(files) {
-            console.log('handleFiles called with', files.length, 'files');
+            // Check Supabase
+            if (typeof window.supabase === 'undefined') {
+                throw new Error('Supabase library not loaded - check internet connection');
+            }
+            logStatus('✅ Supabase library loaded');
             
-            const maxSize = 50 * 1024 * 1024; // 50MB
-            const validFiles = Array.from(files).filter(file => {
-                const isValid = file.size <= maxSize;
-                if (!isValid) console.warn('File too large:', file.name, file.size);
-                return isValid;
+            // Check elements exist
+            const fileInput = document.getElementById('fileInput');
+            const uploadArea = document.getElementById('uploadArea');
+            
+            if (!fileInput) throw new Error('fileInput element not found!');
+            if (!uploadArea) throw new Error('uploadArea element not found!');
+            
+            logStatus(`✅ Found elements: fileInput=${!!fileInput}, uploadArea=${!!uploadArea}`);
+            
+            // Supabase setup
+            const SUPABASE_URL = 'https://vuafoiixequfvipzimxq.supabase.co';
+            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ1YWZvaWl4ZXF1ZnZpcHppbXhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1MjY0NTQsImV4cCI6MjA4MjEwMjQ1NH0.omrVKnj0msQ8EMONR72RevU1l6WcH4pNmSwOn0v7IYA';
+            
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            logStatus('✅ Supabase client created');
+            
+            // User ID
+            let userId = localStorage.getItem('anonymous_user_id');
+            if (!userId) {
+                userId = 'anon_' + Math.random().toString(36).substr(2, 18);
+                localStorage.setItem('anonymous_user_id', userId);
+                logStatus(`🆕 Generated new user ID: ${userId}`);
+            } else {
+                logStatus(`👤 Using existing user ID: ${userId}`);
+            }
+            
+            // DOM elements
+            const filesContainer = document.getElementById('filesContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressFill = document.getElementById('progressFill');
+            const errorMessage = document.getElementById('errorMessage');
+            
+            // Event listeners
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
             });
             
-            if (validFiles.length !== files.length) {
-                showError('Some files exceed 50MB limit and were skipped.');
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+            
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                logStatus(`📥 Drop event: ${e.dataTransfer.files.length} files`);
+                handleFiles(e.dataTransfer.files);
+            });
+            
+            // CRITICAL: Attach change listener
+            fileInput.addEventListener('change', (e) => {
+                logStatus(`🎯 Change event fired! Files: ${e.target.files.length}`);
+                handleFiles(e.target.files);
+            });
+            
+            logStatus('✅ All event listeners attached');
+            
+            // Functions
+            function showError(msg) {
+                logStatus(`❌ Error: ${msg}`);
+                errorMessage.textContent = msg;
+                errorMessage.style.display = 'block';
+                setTimeout(() => {
+                    errorMessage.style.display = 'none';
+                }, 5000);
             }
             
-            if (validFiles.length === 0) {
-                console.log('No valid files to upload');
-                return;
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
             }
             
-            // Show progress immediately
-            uploadArea.classList.add('uploading');
-            progressBar.classList.add('active');
-            progressFill.style.width = '0%';
-            
-            for (let i = 0; i < validFiles.length; i++) {
-                const file = validFiles[i];
-                console.log('Uploading file:', file.name);
-                
-                progressFill.style.width = `${(i / validFiles.length) * 100}%`;
-                
-                try {
-                    const fileExt = file.name.split('.').pop();
-                    const uniqueName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
-                    const storagePath = `${userId}/${uniqueName}`;
-                    
-                    console.log('Uploading to path:', storagePath);
-                    
-                    // Upload to storage
-                    const { data: uploadData, error: uploadError } = await supabase.storage
-                        .from('files')
-                        .upload(storagePath, file);
-                    
-                    if (uploadError) {
-                        console.error('Storage upload error:', uploadError);
-                        throw uploadError;
-                    }
-                    
-                    console.log('Storage upload success:', uploadData);
-                    
-                    // Save metadata to database
-                    const { data: dbData, error: dbError } = await supabase.from('files').insert({
-                        filename: file.name,
-                        storage_path: storagePath,
-                        uploaded_by: userId,
-                        file_size: file.size,
-                        file_type: file.type
-                    });
-                    
-                    if (dbError) {
-                        console.error('Database insert error:', dbError);
-                        throw dbError;
-                    }
-                    
-                    console.log('Database insert success:', dbData);
-                    
-                } catch (error) {
-                    console.error('Upload failed for', file.name, error);
-                    showError(`Failed to upload ${file.name}: ${error.message}`);
-                }
+            function getFileIcon(filename) {
+                const ext = filename.split('.').pop().toLowerCase();
+                const icons = {
+                    'pdf': '📄',
+                    'doc': '📝', 'docx': '📝',
+                    'xls': '📊', 'xlsx': '📊',
+                    'ppt': '📋', 'pptx': '📋',
+                    'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️', 'gif': '🖼️',
+                    'zip': '📦', 'rar': '📦', '7z': '📦',
+                    'txt': '📃',
+                    'mp4': '🎬', 'mov': '🎬',
+                    'mp3': '🎵', 'wav': '🎵'
+                };
+                return icons[ext] || '📎';
             }
             
-            progressFill.style.width = '100%';
-            setTimeout(() => {
-                uploadArea.classList.remove('uploading');
-                progressBar.classList.remove('active');
-                progressFill.style.width = '0%';
-            }, 500);
-            
-            fileInput.value = '';
-            console.log('Reloading file list...');
-            loadFiles();
-        }
-        
-        async function loadFiles() {
-            console.log('Loading files...');
-            try {
-                const { data, error } = await supabase
-                    .from('files')
-                    .select('*')
-                    .order('created_at', { ascending: false });
+            async function handleFiles(files) {
+                logStatus(`📤 handleFiles called with ${files.length} file(s)`);
                 
-                if (error) {
-                    console.error('Database query error:', error);
-                    throw error;
+                const maxSize = 50 * 1024 * 1024; // 50MB
+                const validFiles = Array.from(files).filter(file => {
+                    const isValid = file.size <= maxSize;
+                    if (!isValid) logStatus(`⚠️ Skipping ${file.name} (too large: ${file.size} bytes)`);
+                    return isValid;
+                });
+                
+                if (validFiles.length !== files.length) {
+                    showError('Some files exceed 50MB limit and were skipped.');
                 }
                 
-                console.log('Files loaded:', data);
-                
-                if (data.length === 0) {
-                    filesContainer.innerHTML = '<div class="empty-state">No files yet. Be the first to upload!</div>';
+                if (validFiles.length === 0) {
+                    logStatus('No valid files to upload');
                     return;
                 }
                 
-                filesContainer.innerHTML = data.map(file => `
-                    <div class="file-item">
-                        <div class="file-info">
-                            <span class="file-icon">${getFileIcon(file.filename)}</span>
-                            <div class="file-details">
-                                <h3>${file.filename}</h3>
-                                <div class="file-meta">
-                                    ${formatFileSize(file.file_size)} • 
-                                    ${new Date(file.created_at).toLocaleDateString()}
+                uploadArea.classList.add('uploading');
+                progressBar.classList.add('active');
+                progressFill.style.width = '0%';
+                
+                for (let i = 0; i < validFiles.length; i++) {
+                    const file = validFiles[i];
+                    logStatus(`⏫ Uploading: ${file.name} (${formatFileSize(file.size)})`);
+                    
+                    progressFill.style.width = `${(i / validFiles.length) * 100}%`;
+                    
+                    try {
+                        const fileExt = file.name.split('.').pop();
+                        const uniqueName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+                        const storagePath = `${userId}/${uniqueName}`;
+                        
+                        logStatus(`🎯 Upload path: ${storagePath}`);
+                        
+                        // Upload to storage
+                        const { data: uploadData, error: uploadError } = await supabase.storage
+                            .from('files')
+                            .upload(storagePath, file);
+                        
+                        if (uploadError) {
+                            logStatus(`❌ Storage error: ${uploadError.message}`);
+                            throw uploadError;
+                        }
+                        
+                        logStatus('✅ Storage upload successful');
+                        
+                        // Save metadata to database
+                        const { data: dbData, error: dbError } = await supabase.from('files').insert({
+                            filename: file.name,
+                            storage_path: storagePath,
+                            uploaded_by: userId,
+                            file_size: file.size,
+                            file_type: file.type
+                        });
+                        
+                        if (dbError) {
+                            logStatus(`❌ Database error: ${dbError.message}`);
+                            throw dbError;
+                        }
+                        
+                        logStatus('✅ Database insert successful');
+                        
+                    } catch (error) {
+                        logStatus(`💥 Upload failed: ${error.message}`);
+                        showError(`Failed to upload ${file.name}: ${error.message}`);
+                    }
+                }
+                
+                progressFill.style.width = '100%';
+                setTimeout(() => {
+                    uploadArea.classList.remove('uploading');
+                    progressBar.classList.remove('active');
+                    progressFill.style.width = '0%';
+                }, 500);
+                
+                fileInput.value = '';
+                logStatus('🔄 Reloading file list...');
+                loadFiles();
+            }
+            
+            async function loadFiles() {
+                logStatus('📥 Loading files from database...');
+                try {
+                    const { data, error } = await supabase
+                        .from('files')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+                    
+                    if (error) {
+                        logStatus(`❌ Query error: ${error.message}`);
+                        throw error;
+                    }
+                    
+                    logStatus(`✅ Found ${data.length} file(s)`);
+                    
+                    if (data.length === 0) {
+                        filesContainer.innerHTML = '<div class="empty-state">No files yet. Be the first to upload!</div>';
+                        return;
+                    }
+                    
+                    filesContainer.innerHTML = data.map(file => `
+                        <div class="file-item">
+                            <div class="file-info">
+                                <span class="file-icon">${getFileIcon(file.filename)}</span>
+                                <div class="file-details">
+                                    <h3>${file.filename}</h3>
+                                    <div class="file-meta">
+                                        ${formatFileSize(file.file_size)} • 
+                                        ${new Date(file.created_at).toLocaleDateString()}
+                                    </div>
                                 </div>
                             </div>
+                            <div class="file-actions">
+                                <button class="download-btn" onclick="downloadFile('${file.storage_path}', '${file.filename}')">
+                                    Download
+                                </button>
+                                ${file.uploaded_by === userId ? 
+                                    `<button class="delete-btn" onclick="deleteFile('${file.id}', '${file.storage_path}')">Delete</button>` 
+                                    : ''
+                                }
+                            </div>
                         </div>
-                        <div class="file-actions">
-                            <button class="download-btn" onclick="downloadFile('${file.storage_path}', '${file.filename}')">
-                                Download
-                            </button>
-                            ${file.uploaded_by === userId ? 
-                                `<button class="delete-btn" onclick="deleteFile('${file.id}', '${file.storage_path}')">Delete</button>` 
-                                : ''
-                            }
-                        </div>
-                    </div>
-                `).join('');
-                
-            } catch (error) {
-                console.error('Load error:', error);
-                showError('Failed to load files: ' + error.message);
-            }
-        }
-        
-        async function downloadFile(storagePath, filename) {
-            console.log('Downloading:', filename, 'from', storagePath);
-            try {
-                const { data, error } = await supabase.storage
-                    .from('files')
-                    .download(storagePath);
-                
-                if (error) {
-                    console.error('Download error:', error);
-                    throw error;
+                    `).join('');
+                    
+                } catch (error) {
+                    logStatus(`💥 Load failed: ${error.message}`);
+                    showError('Failed to load files: ' + error.message);
                 }
-                
-                const url = URL.createObjectURL(data);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                
-            } catch (error) {
-                console.error('Download error:', error);
-                showError('Failed to download file: ' + error.message);
             }
-        }
-        
-        async function deleteFile(fileId, storagePath) {
-            if (!confirm('Delete this file?')) return;
             
-            console.log('Deleting file:', fileId, storagePath);
-            try {
-                // Delete from storage
-                const { error: storageError } = await supabase.storage
-                    .from('files')
-                    .remove([storagePath]);
-                
-                if (storageError) {
-                    console.error('Storage delete error:', storageError);
-                    throw storageError;
+            async function downloadFile(storagePath, filename) {
+                logStatus(`⬇️ Downloading: ${filename}`);
+                try {
+                    const { data, error } = await supabase.storage
+                        .from('files')
+                        .download(storagePath);
+                    
+                    if (error) {
+                        logStatus(`❌ Download error: ${error.message}`);
+                        throw error;
+                    }
+                    
+                    const url = URL.createObjectURL(data);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    logStatus('✅ Download complete');
+                    
+                } catch (error) {
+                    logStatus(`💥 Download failed: ${error.message}`);
+                    showError('Failed to download file: ' + error.message);
                 }
-                
-                // Delete from database
-                const { error: dbError } = await supabase
-                    .from('files')
-                    .delete()
-                    .eq('id', fileId);
-                
-                if (dbError) {
-                    console.error('Database delete error:', dbError);
-                    throw dbError;
-                }
-                
-                console.log('Delete successful');
-                loadFiles();
-                
-            } catch (error) {
-                console.error('Delete error:', error);
-                showError('Failed to delete file: ' + error.message);
             }
+            
+            async function deleteFile(fileId, storagePath) {
+                if (!confirm('Delete this file?')) return;
+                
+                logStatus(`🗑️ Deleting file: ${fileId}`);
+                try {
+                    const { error: storageError } = await supabase.storage
+                        .from('files')
+                        .remove([storagePath]);
+                    
+                    if (storageError) {
+                        logStatus(`❌ Storage delete error: ${storageError.message}`);
+                        throw storageError;
+                    }
+                    
+                    const { error: dbError } = await supabase
+                        .from('files')
+                        .delete()
+                        .eq('id', fileId);
+                    
+                    if (dbError) {
+                        logStatus(`❌ Database delete error: ${dbError.message}`);
+                        throw dbError;
+                    }
+                    
+                    logStatus('✅ Delete successful');
+                    loadFiles();
+                    
+                } catch (error) {
+                    logStatus(`💥 Delete failed: ${error.message}`);
+                    showError('Failed to delete file: ' + error.message);
+                }
+            }
+            
+            // Initial load
+            logStatus('🔄 Initial file load...');
+            loadFiles();
+            
+        } catch (e) {
+            logStatus(`💥 FATAL ERROR: ${e.message}`);
+            document.getElementById('errorMessage').textContent = `FATAL: ${e.message}. Check console.`;
+            document.getElementById('errorMessage').style.display = 'block';
         }
-        
-        // Initial load
-        console.log('Page loaded, initializing...');
-        loadFiles();
     </script>
 </body>
 </html>
