@@ -6,6 +6,7 @@
     <title>Simple File Share</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
+        /* Same CSS as before - unchanged */
         * {
             margin: 0;
             padding: 0;
@@ -47,6 +48,7 @@
             cursor: pointer;
             transition: all 0.3s ease;
             margin-bottom: 30px;
+            display: block; /* Important for label */
         }
         
         .upload-area:hover {
@@ -189,15 +191,18 @@
     <div class="container">
         <div class="error-message" id="errorMessage"></div>
         
-        <div class="upload-area" id="uploadArea">
+        <!-- Use a label instead of div - this is the key fix -->
+        <label for="fileInput" class="upload-area" id="uploadArea">
             <div class="upload-icon">📤</div>
             <p><strong>Click to upload</strong> or drag and drop</p>
             <p style="font-size: 14px; color: #6b7280; margin-top: 8px;">Any file up to 50MB</p>
-            <input type="file" id="fileInput" multiple>
             <div class="progress-bar" id="progressBar">
                 <div class="progress-fill" id="progressFill"></div>
             </div>
-        </div>
+        </label>
+        
+        <!-- Move input outside and use proper ID matching -->
+        <input type="file" id="fileInput" multiple>
         
         <div class="file-list" id="fileList">
             <h2 style="margin-bottom: 20px; font-size: 20px;">Shared Files</h2>
@@ -209,20 +214,7 @@
 
     <script>
         // ===== SUPABASE SETUP REQUIRED =====
-        // Before using this, you MUST set up your Supabase project:
-        // 1. Create a storage bucket named "files" with public access
-        // 2. Enable RLS on the bucket and add policies:
-        //    - Allow anonymous uploads
-        //    - Allow anonymous downloads
-        // 3. Create a "files" table with columns:
-        //    - id (uuid, primary key)
-        //    - filename (text)
-        //    - storage_path (text)
-        //    - uploaded_by (text)
-        //    - file_size (int)
-        //    - file_type (text)
-        //    - created_at (timestamp)
-        // 4. Enable RLS on the table and add policies for SELECT, INSERT, DELETE
+        // (Same setup instructions apply)
         
         const SUPABASE_URL = 'https://vuafoiixequfvipzimxq.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ1YWZvaWl4ZXF1ZnZpcHppbXhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1MjY0NTQsImV4cCI6MjA4MjEwMjQ1NH0.omrVKnj0msQ8EMONR72RevU1l6WcH4pNmSwON0v7IYA';
@@ -230,7 +222,7 @@
         // Initialize Supabase
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
-        // Anonymous user ID (stored in localStorage)
+        // Anonymous user ID
         let userId = localStorage.getItem('anonymous_user_id');
         if (!userId) {
             userId = 'anon_' + Math.random().toString(36).substr(2, 18);
@@ -245,9 +237,7 @@
         const progressFill = document.getElementById('progressFill');
         const errorMessage = document.getElementById('errorMessage');
         
-        // Event listeners
-        uploadArea.addEventListener('click', () => fileInput.click());
-        
+        // Event listeners - simplified since label handles clicks natively
         uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
             uploadArea.classList.add('dragover');
