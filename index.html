@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Supabase File Share</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0f0f12;
+      color: #fff;
+      max-width: 800px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    input, button {
+      padding: 10px;
+      margin-top: 10px;
+      width: 100%;
+      border-radius: 6px;
+      border: none;
+    }
+
+    button {
+      background: #5865f2;
+      color: white;
+      cursor: pointer;
+    }
+
+    .file {
+      background: #1b1b22;
+      padding: 12px;
+      border-radius: 6px;
+      margin-top: 10px;
+    }
+
+    a {
+      color: #4da3ff;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+
+<h2>📁 Supabase File Share</h2>
+
+<input type="file" id="fileInput">
+<button onclick="uploadFile()">Upload</button>
+
+<div id="files"></div>
+
+<script>
+  const supabase = supabaseJs.createClient(
+    "https://YOUR_PROJECT_ID.supabase.co",
+    "YOUR_PUBLIC_ANON_KEY"
+  );
+
+  function randomId(length = 8) {
+    return Math.random().toString(36).substring(2, 2 + length);
+  }
+
+  async function uploadFile() {
+    const file = document.getElementById("fileInput").files[0];
+    if (!file) return alert("No file selected");
+
+    const shortId = randomId();
+    const path = `${shortId}/${file.name}`;
+
+    const { error: uploadError } = await supabase
+      .storage
+      .from("uploads")
+      .upload(path, file);
+
+    if (uploadError) {
+      alert(uploadError.message);
+      return;
+    }
+
+    const { data } = supabase
+      .storage
+      .from("uploads")
+      .getPublicUrl(path);
+
+    await supabase.from("files").insert({
+      original_name: file.name,
+      storage_path: path,
+      public_url: data.publicUrl,
+      mime_type: file.type,
+      file_size: file.size,
+      short_id: shortId
+    });
+
+    loadFiles();
+  }
+
+  async function loadFiles() {
+    const { data } = await supabase
+      .from("files")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    const container = document.getElementById("files");
+    container.innerHTML = "";
+
+    data.forEach(file => {
+      container.innerHTML += `
+        <div class="file">
+          <strong>${file.original_name}</strong><br>
+          <a href="${file.public_url}" target="_blank">${file.public_url}</a>
+        </div>
+      `;
+    });
+  }
+
+  loadFiles();
+</script>
+
+</body>
+</html>
