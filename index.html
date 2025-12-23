@@ -6,179 +6,37 @@
     <title>Simple File Share</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* Same CSS as before - unchanged */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #f5f5f5;
-            color: #333;
-            line-height: 1.6;
-        }
-        
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        header {
-            background: #2563eb;
-            color: white;
-            padding: 25px 0;
-            margin-bottom: 30px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        h1 {
-            text-align: center;
-            font-size: 28px;
-        }
-        
-        .upload-area {
-            background: white;
-            border: 2px dashed #d1d5db;
-            border-radius: 12px;
-            padding: 40px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-bottom: 30px;
-            display: block; /* Important for label */
-        }
-        
-        .upload-area:hover {
-            border-color: #2563eb;
-            background: #f8f9ff;
-        }
-        
-        .upload-area.dragover {
-            border-color: #2563eb;
-            background: #eff2ff;
-        }
-        
-        input[type="file"] {
-            display: none;
-        }
-        
-        .upload-icon {
-            font-size: 48px;
-            color: #9ca3af;
-            margin-bottom: 15px;
-        }
-        
-        .file-list {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-        
-        .file-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 15px;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        
-        .file-item:last-child {
-            border-bottom: none;
-        }
-        
-        .file-info {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            flex: 1;
-        }
-        
-        .file-icon {
-            font-size: 32px;
-        }
-        
-        .file-details h3 {
-            font-size: 16px;
-            margin-bottom: 4px;
-            word-break: break-all;
-        }
-        
-        .file-meta {
-            font-size: 13px;
-            color: #6b7280;
-        }
-        
-        .file-actions {
-            display: flex;
-            gap: 10px;
-        }
-        
-        button {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.2s;
-        }
-        
-        .download-btn {
-            background: #2563eb;
-            color: white;
-        }
-        
-        .download-btn:hover {
-            background: #1d4ed8;
-        }
-        
-        .delete-btn {
-            background: #ef4444;
-            color: white;
-        }
-        
-        .delete-btn:hover {
-            background: #dc2626;
-        }
-        
-        .progress-bar {
-            width: 100%;
-            height: 4px;
-            background: #e5e7eb;
-            border-radius: 2px;
-            margin-top: 15px;
-            display: none;
-        }
-        
-        .progress-bar.active {
-            display: block;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: #2563eb;
-            border-radius: 2px;
-            transition: width 0.3s ease;
-            width: 0%;
-        }
-        
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            color: #6b7280;
-        }
-        
-        .error-message {
-            background: #fee2e2;
-            color: #dc2626;
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            display: none;
-        }
+        /* Same CSS as before */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; background: #f5f5f5; color: #333; line-height: 1.6; }
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+        header { background: #2563eb; color: white; padding: 25px 0; margin-bottom: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; font-size: 28px; }
+        .upload-area { background: white; border: 2px dashed #d1d5db; border-radius: 12px; padding: 40px; text-align: center; cursor: pointer; transition: all 0.3s ease; margin-bottom: 30px; display: block; }
+        .upload-area:hover { border-color: #2563eb; background: #f8f9ff; }
+        .upload-area.dragover { border-color: #2563eb; background: #eff2ff; }
+        input[type="file"] { display: none; }
+        .upload-icon { font-size: 48px; color: #9ca3af; margin-bottom: 15px; }
+        .file-list { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .file-item { display: flex; align-items: center; justify-content: space-between; padding: 15px; border-bottom: 1px solid #e5e7eb; }
+        .file-item:last-child { border-bottom: none; }
+        .file-info { display: flex; align-items: center; gap: 15px; flex: 1; }
+        .file-icon { font-size: 32px; }
+        .file-details h3 { font-size: 16px; margin-bottom: 4px; word-break: break-all; }
+        .file-meta { font-size: 13px; color: #6b7280; }
+        .file-actions { display: flex; gap: 10px; }
+        button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+        .download-btn { background: #2563eb; color: white; }
+        .download-btn:hover { background: #1d4ed8; }
+        .delete-btn { background: #ef4444; color: white; }
+        .delete-btn:hover { background: #dc2626; }
+        .progress-bar { width: 100%; height: 4px; background: #e5e7eb; border-radius: 2px; margin-top: 15px; display: none; }
+        .progress-bar.active { display: block; }
+        .progress-fill { height: 100%; background: #2563eb; border-radius: 2px; transition: width 0.3s ease; width: 0%; }
+        .empty-state { text-align: center; padding: 40px; color: #6b7280; }
+        .error-message { background: #fee2e2; color: #dc2626; padding: 12px; border-radius: 6px; margin-bottom: 20px; display: none; }
+        /* NEW: Visual feedback for upload state */
+        .uploading { opacity: 0.6; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -191,7 +49,6 @@
     <div class="container">
         <div class="error-message" id="errorMessage"></div>
         
-        <!-- Use a label instead of div - this is the key fix -->
         <label for="fileInput" class="upload-area" id="uploadArea">
             <div class="upload-icon">📤</div>
             <p><strong>Click to upload</strong> or drag and drop</p>
@@ -201,7 +58,6 @@
             </div>
         </label>
         
-        <!-- Move input outside and use proper ID matching -->
         <input type="file" id="fileInput" multiple>
         
         <div class="file-list" id="fileList">
@@ -213,20 +69,33 @@
     </div>
 
     <script>
-        // ===== SUPABASE SETUP REQUIRED =====
-        // (Same setup instructions apply)
+        // DEBUG: Check if Supabase loaded
+        if (typeof window.supabase === 'undefined') {
+            alert('ERROR: Supabase library failed to load. Check your internet connection.');
+            console.error('Supabase not loaded');
+        }
         
         const SUPABASE_URL = 'https://vuafoiixequfvipzimxq.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ1YWZvaWl4ZXF1ZnZpcHppbXhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1MjY0NTQsImV4cCI6MjA4MjEwMjQ1NH0.omrVKnj0msQ8EMONR72RevU1l6WcH4pNmSwON0v7IYA';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ1YWZvaWl4ZXF1ZnZpcHppbXhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1MjY0NTQsImV4cCI6MjA4MjEwMjQ1NH0.omrVKnj0msQ8EMONR72RevU1l6WcH4pNmSwOn0v7IYA';
         
-        // Initialize Supabase
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // DEBUG: Initialize Supabase
+        let supabase;
+        try {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            console.log('✅ Supabase initialized');
+        } catch (e) {
+            console.error('❌ Supabase init failed:', e);
+            alert('Failed to initialize Supabase. Check console for errors.');
+        }
         
         // Anonymous user ID
         let userId = localStorage.getItem('anonymous_user_id');
         if (!userId) {
             userId = 'anon_' + Math.random().toString(36).substr(2, 18);
             localStorage.setItem('anonymous_user_id', userId);
+            console.log('Generated new user ID:', userId);
+        } else {
+            console.log('Using existing user ID:', userId);
         }
         
         // DOM elements
@@ -237,7 +106,7 @@
         const progressFill = document.getElementById('progressFill');
         const errorMessage = document.getElementById('errorMessage');
         
-        // Event listeners - simplified since label handles clicks natively
+        // Event listeners
         uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
             uploadArea.classList.add('dragover');
@@ -250,15 +119,18 @@
         uploadArea.addEventListener('drop', (e) => {
             e.preventDefault();
             uploadArea.classList.remove('dragover');
+            console.log('Files dropped:', e.dataTransfer.files);
             handleFiles(e.dataTransfer.files);
         });
         
         fileInput.addEventListener('change', (e) => {
+            console.log('Files selected:', e.target.files);
             handleFiles(e.target.files);
         });
         
         // Functions
         function showError(msg) {
+            console.error('Error:', msg);
             errorMessage.textContent = msg;
             errorMessage.style.display = 'block';
             setTimeout(() => {
@@ -291,19 +163,33 @@
         }
         
         async function handleFiles(files) {
+            console.log('handleFiles called with', files.length, 'files');
+            
             const maxSize = 50 * 1024 * 1024; // 50MB
-            const validFiles = Array.from(files).filter(file => file.size <= maxSize);
+            const validFiles = Array.from(files).filter(file => {
+                const isValid = file.size <= maxSize;
+                if (!isValid) console.warn('File too large:', file.name, file.size);
+                return isValid;
+            });
             
             if (validFiles.length !== files.length) {
                 showError('Some files exceed 50MB limit and were skipped.');
             }
             
-            if (validFiles.length === 0) return;
+            if (validFiles.length === 0) {
+                console.log('No valid files to upload');
+                return;
+            }
             
+            // Show progress immediately
+            uploadArea.classList.add('uploading');
             progressBar.classList.add('active');
+            progressFill.style.width = '0%';
             
             for (let i = 0; i < validFiles.length; i++) {
                 const file = validFiles[i];
+                console.log('Uploading file:', file.name);
+                
                 progressFill.style.width = `${(i / validFiles.length) * 100}%`;
                 
                 try {
@@ -311,15 +197,22 @@
                     const uniqueName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
                     const storagePath = `${userId}/${uniqueName}`;
                     
+                    console.log('Uploading to path:', storagePath);
+                    
                     // Upload to storage
-                    const { error: uploadError } = await supabase.storage
+                    const { data: uploadData, error: uploadError } = await supabase.storage
                         .from('files')
                         .upload(storagePath, file);
                     
-                    if (uploadError) throw uploadError;
+                    if (uploadError) {
+                        console.error('Storage upload error:', uploadError);
+                        throw uploadError;
+                    }
+                    
+                    console.log('Storage upload success:', uploadData);
                     
                     // Save metadata to database
-                    const { error: dbError } = await supabase.from('files').insert({
+                    const { data: dbData, error: dbError } = await supabase.from('files').insert({
                         filename: file.name,
                         storage_path: storagePath,
                         uploaded_by: userId,
@@ -327,32 +220,45 @@
                         file_type: file.type
                     });
                     
-                    if (dbError) throw dbError;
+                    if (dbError) {
+                        console.error('Database insert error:', dbError);
+                        throw dbError;
+                    }
+                    
+                    console.log('Database insert success:', dbData);
                     
                 } catch (error) {
-                    console.error('Upload error:', error);
+                    console.error('Upload failed for', file.name, error);
                     showError(`Failed to upload ${file.name}: ${error.message}`);
                 }
             }
             
             progressFill.style.width = '100%';
             setTimeout(() => {
+                uploadArea.classList.remove('uploading');
                 progressBar.classList.remove('active');
                 progressFill.style.width = '0%';
             }, 500);
             
             fileInput.value = '';
+            console.log('Reloading file list...');
             loadFiles();
         }
         
         async function loadFiles() {
+            console.log('Loading files...');
             try {
                 const { data, error } = await supabase
                     .from('files')
                     .select('*')
                     .order('created_at', { ascending: false });
                 
-                if (error) throw error;
+                if (error) {
+                    console.error('Database query error:', error);
+                    throw error;
+                }
+                
+                console.log('Files loaded:', data);
                 
                 if (data.length === 0) {
                     filesContainer.innerHTML = '<div class="empty-state">No files yet. Be the first to upload!</div>';
@@ -390,12 +296,16 @@
         }
         
         async function downloadFile(storagePath, filename) {
+            console.log('Downloading:', filename, 'from', storagePath);
             try {
                 const { data, error } = await supabase.storage
                     .from('files')
                     .download(storagePath);
                 
-                if (error) throw error;
+                if (error) {
+                    console.error('Download error:', error);
+                    throw error;
+                }
                 
                 const url = URL.createObjectURL(data);
                 const a = document.createElement('a');
@@ -415,13 +325,17 @@
         async function deleteFile(fileId, storagePath) {
             if (!confirm('Delete this file?')) return;
             
+            console.log('Deleting file:', fileId, storagePath);
             try {
                 // Delete from storage
                 const { error: storageError } = await supabase.storage
                     .from('files')
                     .remove([storagePath]);
                 
-                if (storageError) throw storageError;
+                if (storageError) {
+                    console.error('Storage delete error:', storageError);
+                    throw storageError;
+                }
                 
                 // Delete from database
                 const { error: dbError } = await supabase
@@ -429,8 +343,12 @@
                     .delete()
                     .eq('id', fileId);
                 
-                if (dbError) throw dbError;
+                if (dbError) {
+                    console.error('Database delete error:', dbError);
+                    throw dbError;
+                }
                 
+                console.log('Delete successful');
                 loadFiles();
                 
             } catch (error) {
@@ -439,7 +357,8 @@
             }
         }
         
-        // Load files on page load
+        // Initial load
+        console.log('Page loaded, initializing...');
         loadFiles();
     </script>
 </body>
